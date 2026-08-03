@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Generated / local zone state — the .example is tracked
+zones/*.zone
+!zones/*.zone.example
+
+# Sphinx
+docs/_build/
+
+# macOS
+.DS_Store

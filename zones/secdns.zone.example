@@ -1,0 +1,19 @@
+# secdns zone — one record per line:  <name>  <type>  <value>
+#
+# SecDeploy generates this file from the site topology (topology.toml): one A record per
+# component, pointing at the address of the resource that hosts it. You can also hand-write
+# it. Names may be short (relative to the zone domain) or full FQDNs; blank lines and
+# '#' comments are ignored. Reload after editing: `kill -HUP <pid>` or the console button.
+
+# name          type   value
+seccert         A      10.0.0.5
+secsso          A      10.0.0.5
+secrouter       A      10.0.0.5
+secagent        A      10.0.0.5
+secchat         A      10.0.0.5
+secrecorder     A      10.0.0.5
+secllm          A      10.0.0.6
+secdns          A      10.0.0.5
+
+# TXT records are supported too (used later for SecCert DNS-01):
+# _acme-challenge.secrouter   TXT   "example-validation-token"

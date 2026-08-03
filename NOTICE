@@ -1,0 +1,6 @@
+secdns
+Copyright 2026 Austin Probe
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+secdns is a small authoritative internal DNS server for closed networks.

@@ -1,0 +1,28 @@
+[project]
+name = "secdns"
+version = "0.1.0"
+description = "secdns — a small, zero-dependency authoritative internal DNS for closed networks."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Austin Probe" }]
+keywords = ["dns", "authoritative", "resolver", "internal", "air-gapped", "closed-network", "cmmc"]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+docs = ["sphinx>=7", "furo>=2024.1", "myst-parser>=2"]
+
+[project.scripts]
+secdns = "secdns.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/secdns"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
