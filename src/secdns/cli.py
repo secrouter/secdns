@@ -65,13 +65,24 @@ def cmd_serve(args) -> int:
     except OSError as exc:
         print(f"secdns: cannot bind {c.bind}:{c.port}: {exc}", file=sys.stderr)
         return 1
-    console = Console(resolver, bind=c.admin_bind, port=c.admin_port)
+    # The admin console is best-effort: DNS is the critical function, so a console-port conflict
+    # (e.g. a stale instance still holding it) must NOT take the resolver down — otherwise, under a
+    # supervisor that restarts on exit (launchd/systemd), it becomes a permanent crash-loop. Warn
+    # and serve DNS without the console instead.
+    console: Console | None = None
+    try:
+        console = Console(resolver, bind=c.admin_bind, port=c.admin_port)
+    except OSError as exc:
+        print(f"secdns: console {c.admin_bind}:{c.admin_port} unavailable ({exc}) — "
+              "serving DNS without the console", file=sys.stderr)
     dns.start()
-    console.start()
+    if console is not None:
+        console.start()
     fwd = f"→ {', '.join(c.upstream)}" if (c.forward and c.upstream) else "(closed: refuse)"
     print(f"secdns: authoritative for {c.domain} — {resolver.zone.count} records on "
           f"{c.bind}:{dns.udp_port} udp+tcp; forwarding {fwd}")
-    print(f"secdns: console http://{c.admin_bind}:{console.port}")
+    if console is not None:
+        print(f"secdns: console http://{c.admin_bind}:{console.port}")
 
     stop = threading.Event()
     if hasattr(signal, "SIGHUP"):
@@ -81,7 +92,8 @@ def cmd_serve(args) -> int:
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     stop.wait()
     dns.stop()
-    console.stop()
+    if console is not None:
+        console.stop()
     print("secdns: stopped")
     return 0
 
