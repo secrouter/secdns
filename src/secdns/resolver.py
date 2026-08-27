@@ -11,6 +11,7 @@ from __future__ import annotations
 import threading
 
 from . import forwarder, message
+from .audit import AuditLogger
 from .config import Config
 from .zone import Zone
 
@@ -18,18 +19,53 @@ from .zone import Zone
 class Resolver:
     def __init__(self, config: Config, zone: Zone | None = None) -> None:
         self.config = config
-        self.zone = zone if zone is not None else Zone.load(config.zone_file, config.domain, config.ttl)
+        self.audit = AuditLogger(config.resolved_audit_path(), enabled=config.audit_enabled)
+        if zone is not None:
+            # Caller supplied the zone directly (tests, embedding) — no load happened,
+            # so no zone.load lifecycle event to record.
+            self.zone = zone
+        else:
+            self.zone = Zone.load(config.zone_file, config.domain, config.ttl)
+            self.audit.record(
+                "zone.load",
+                target={"file": str(config.zone_file), "domain": config.domain},
+                detail={"records": self.zone.count},
+            )
         self._lock = threading.Lock()
         self.stats = {
             "queries": 0, "authoritative": 0, "nodata": 0, "nxdomain": 0,
             "forwarded": 0, "refused": 0, "malformed": 0,
         }
 
-    def reload(self) -> int:
-        """Re-read the zone file (called on SIGHUP / the admin console). Returns record count."""
-        zone = Zone.load(self.config.zone_file, self.config.domain, self.config.ttl)
+    def reload(self, principal: str = "system", source_ip: str | None = None) -> int:
+        """Re-read the zone file (called on SIGHUP / the admin console). Returns record count.
+
+        Emits a ``zone.reload`` lifecycle audit event either way (outcome ``ok`` or
+        ``error``) — ``principal`` is ``"system"`` for SIGHUP and ``"console:<ip>"`` when
+        triggered through the status console's ``POST /reload``.
+        """
+        target = {"file": str(self.config.zone_file), "domain": self.config.domain}
+        try:
+            zone = Zone.load(self.config.zone_file, self.config.domain, self.config.ttl)
+        except Exception as exc:
+            self.audit.record(
+                "zone.reload",
+                principal=principal,
+                source_ip=source_ip,
+                target=target,
+                outcome="error",
+                detail={"error": str(exc)[:200]},
+            )
+            raise
         with self._lock:
             self.zone = zone
+        self.audit.record(
+            "zone.reload",
+            principal=principal,
+            source_ip=source_ip,
+            target=target,
+            detail={"records": zone.count},
+        )
         return zone.count
 
     def _authoritative_for(self, name: str) -> bool:

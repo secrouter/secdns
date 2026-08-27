@@ -2,6 +2,7 @@
 
   secdns serve        run the authoritative + forwarding server (default) and the console
   secdns check-zone   parse the zone file and print its records (no network)
+  secdns audit verify verify the lifecycle audit log's hash chain
 
 Flags override environment variables (see :mod:`secdns.config`).
 """
@@ -9,11 +10,13 @@ Flags override environment variables (see :mod:`secdns.config`).
 from __future__ import annotations
 
 import argparse
+import json
 import signal
 import sys
 import threading
 from pathlib import Path
 
+from . import audit
 from .config import Config, _split
 from .console import Console
 from .resolver import Resolver
@@ -41,6 +44,10 @@ def _config_from(args) -> Config:
         c.ttl = args.ttl
     if getattr(args, "no_forward", False):
         c.forward = False
+    if getattr(args, "audit_path", None):
+        c.audit_path = Path(args.audit_path)
+    if getattr(args, "no_audit", False):
+        c.audit_enabled = False
     return c
 
 
@@ -51,6 +58,17 @@ def cmd_check_zone(args) -> int:
     for name, rtype, value in zone.entries():
         print(f"  {name:<34} {rtype:<5} {value}")
     return 0
+
+
+def cmd_audit_verify(args) -> int:
+    c = _config_from(args)
+    path = c.resolved_audit_path()
+    ok, checked, broken_at = audit.verify(path)
+    result: dict[str, object] = {"ok": ok, "checked": checked}
+    if broken_at is not None:
+        result["brokenAtSeq"] = broken_at
+    print(json.dumps(result))
+    return 0 if ok else 1
 
 
 def cmd_serve(args) -> int:
@@ -83,6 +101,16 @@ def cmd_serve(args) -> int:
           f"{c.bind}:{dns.udp_port} udp+tcp; forwarding {fwd}")
     if console is not None:
         print(f"secdns: console http://{c.admin_bind}:{console.port}")
+    # Lifecycle event — config summary only (metadata: domain, record count, forwarder
+    # posture), never the query stream. See docs/control-validation.md.
+    resolver.audit.record(
+        "server.start",
+        detail={
+            "domain": c.domain,
+            "records": resolver.zone.count,
+            "forwarding": bool(c.forward and c.upstream),
+        },
+    )
 
     stop = threading.Event()
     if hasattr(signal, "SIGHUP"):
@@ -94,6 +122,7 @@ def cmd_serve(args) -> int:
     dns.stop()
     if console is not None:
         console.stop()
+    resolver.audit.record("server.stop", detail={"records": resolver.zone.count})
     print("secdns: stopped")
     return 0
 
@@ -116,11 +145,23 @@ def build_parser() -> argparse.ArgumentParser:
     sp_serve.add_argument("--admin-port", dest="admin_port", type=int, help="console port (default 47053)")
     sp_serve.add_argument("--no-forward", dest="no_forward", action="store_true",
                           help="refuse non-internal queries instead of forwarding (closed network)")
+    sp_serve.add_argument("--audit-path", dest="audit_path",
+                          help="lifecycle audit log path (default: alongside the zone file)")
+    sp_serve.add_argument("--no-audit", dest="no_audit", action="store_true",
+                          help="disable lifecycle audit logging")
     sp_serve.set_defaults(fn=cmd_serve)
 
     sp_check = sub.add_parser("check-zone", help="parse the zone file and print records")
     _common(sp_check)
     sp_check.set_defaults(fn=cmd_check_zone)
+
+    sp_audit = sub.add_parser("audit", help="lifecycle audit log operations")
+    sub_audit = sp_audit.add_subparsers(dest="audit_cmd", required=True)
+    sp_verify = sub_audit.add_parser("verify", help="verify the lifecycle audit hash chain")
+    _common(sp_verify)
+    sp_verify.add_argument("--audit-path", dest="audit_path",
+                           help="lifecycle audit log path (default: alongside the zone file)")
+    sp_verify.set_defaults(fn=cmd_audit_verify)
 
     return p
 

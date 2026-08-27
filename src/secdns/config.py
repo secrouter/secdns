@@ -2,7 +2,7 @@
 
 Env vars (all optional): ``SECDNS_DOMAIN``, ``SECDNS_ZONE``, ``SECDNS_UPSTREAM`` (comma-
 separated), ``SECDNS_BIND``, ``SECDNS_PORT``, ``SECDNS_ADMIN_BIND``, ``SECDNS_ADMIN_PORT``,
-``SECDNS_TTL``, ``SECDNS_NO_FORWARD``.
+``SECDNS_TTL``, ``SECDNS_NO_FORWARD``, ``SECDNS_AUDIT_PATH``, ``SECDNS_AUDIT_ENABLED``.
 """
 
 from __future__ import annotations
@@ -31,10 +31,22 @@ class Config:
     admin_port: int = DEFAULT_ADMIN_PORT
     ttl: int = 60
     forward: bool = True
+    # Lifecycle audit log (see :mod:`secdns.audit`). ``audit_path=None`` means "derive
+    # from the zone file's directory" (see :meth:`resolved_audit_path`) — kept lazy so a
+    # bare ``Config()`` doesn't hard-code a path before the zone file is known.
+    audit_path: Path | None = None
+    audit_enabled: bool = True
+
+    def resolved_audit_path(self) -> Path:
+        """The audit log path to use: ``audit_path`` if set, else alongside the zone file."""
+        if self.audit_path is not None:
+            return self.audit_path
+        return self.zone_file.parent / "secdns-audit.jsonl"
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> "Config":
         e = os.environ if env is None else env
+        audit_path = e.get("SECDNS_AUDIT_PATH")
         return Config(
             domain=e.get("SECDNS_DOMAIN", DEFAULT_DOMAIN).rstrip(".").lower(),
             zone_file=Path(e.get("SECDNS_ZONE", "zones/secdns.zone")),
@@ -45,4 +57,7 @@ class Config:
             admin_port=int(e.get("SECDNS_ADMIN_PORT", DEFAULT_ADMIN_PORT)),
             ttl=int(e.get("SECDNS_TTL", "60")),
             forward=e.get("SECDNS_NO_FORWARD", "") == "",
+            audit_path=Path(audit_path) if audit_path else None,
+            audit_enabled=e.get("SECDNS_AUDIT_ENABLED", "1").strip().lower()
+            not in ("0", "false", "no"),
         )

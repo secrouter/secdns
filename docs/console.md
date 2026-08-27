@@ -9,7 +9,7 @@ not answer DNS.
 | Method | Path | Returns |
 |---|---|---|
 | `GET` | `/` | HTML status page: zone name, forwarding state, TTL, record count, live query stats, the served records, and a **Reload zone** button |
-| `GET` | `/health` | JSON `{status, domain, records, queries}` — for liveness probes |
+| `GET` | `/health` (alias `/healthz`) | JSON `{status, domain, records, queries}` — for liveness probes |
 | `GET` | `/records` | JSON dump of the served records (`name`, `type`, `value`) |
 | `POST` | `/reload` | re-read the zone file; returns `{status, records}` |
 
