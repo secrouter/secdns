@@ -8,7 +8,7 @@ has real name resolution instead of scattered `/etc/hosts` edits.
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Part of the [SecRouter](https://github.com/secrouter/secrouter) suite, deployed by
-[SecDeploy](https://github.com/secrouter/secdeploy) alongside
+[SecDeploy](https://github.com/secrouter/secdeploy#the-suite) alongside
 [SecCert](https://github.com/secrouter/seccert) (internal CA) and
 [SecSSO](https://github.com/secrouter/secsso) (identity) as the suite's identity & trust tier.
 
