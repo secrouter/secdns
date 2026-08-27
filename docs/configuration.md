@@ -15,16 +15,29 @@ back to built-in defaults. There is no config file — the only stateful input i
 | `--admin-port` | `SECDNS_ADMIN_PORT` | `47053` | console port |
 | `--ttl` | `SECDNS_TTL` | `60` | TTL (seconds) on answers |
 | `--no-forward` | `SECDNS_NO_FORWARD` | *(forward on)* | refuse non-internal queries outright |
+| `--audit-path` | `SECDNS_AUDIT_PATH` | *(alongside the zone file)* | lifecycle audit log path |
+| `--no-audit` | `SECDNS_AUDIT_ENABLED` | *(audit on)* | disable lifecycle audit logging (env: set to `0`/`false`/`no`) |
 
 ## Commands
 
 ```
-secdns serve        run the server (UDP+TCP) and the console  [default]
-secdns check-zone   parse the zone file and print its records (no network)
+secdns serve         run the server (UDP+TCP) and the console  [default]
+secdns check-zone    parse the zone file and print its records (no network)
+secdns audit verify  verify the lifecycle audit log's hash chain
 ```
 
 `serve` is the default, so `secdns` with no subcommand starts the server. Running with no
 subcommand but with flags (`secdns --port 5353`) also serves.
+
+`secdns audit verify` re-derives each record's hash and checks the `prevHash` chain, printing
+a JSON result and exiting non-zero on tamper:
+
+```bash
+uv run secdns audit verify --zone zones/secdns.zone
+# {"ok": true, "checked": 3}
+```
+
+See [Control validation](control-validation.md) for the full audit control mapping.
 
 ## Closed-network vs. forwarding
 

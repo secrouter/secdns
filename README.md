@@ -7,6 +7,11 @@ has real name resolution instead of scattered `/etc/hosts` edits.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
+Part of the [SecRouter](https://github.com/secrouter/secrouter) suite, deployed by
+[SecDeploy](https://github.com/secrouter/secdeploy) alongside
+[SecCert](https://github.com/secrouter/seccert) (internal CA) and
+[SecSSO](https://github.com/secrouter/secsso) (identity) as the suite's identity & trust tier.
+
 ## What it does
 
 - **Authoritative** for one internal zone (default `sec.internal`), answering `A` / `AAAA` /
@@ -65,6 +70,8 @@ Flags override environment variables:
 | `--admin-bind` / `--admin-port` | `SECDNS_ADMIN_BIND` / `SECDNS_ADMIN_PORT` | `127.0.0.1` / `47053` | console |
 | `--ttl` | `SECDNS_TTL` | `60` | answer TTL |
 | `--no-forward` | `SECDNS_NO_FORWARD` | forward on | refuse non-internal queries |
+| `--audit-path` | `SECDNS_AUDIT_PATH` | alongside the zone file | lifecycle audit log path |
+| `--no-audit` | `SECDNS_AUDIT_ENABLED=0` | audit on | disable lifecycle audit logging |
 
 ## Tests
 
@@ -74,6 +81,24 @@ uv run pytest
 
 Covers the wire-format codec, zone loading, resolver decisions (authoritative / NODATA /
 NXDOMAIN / forward / refuse), live UDP + TCP round-trips, and the console.
+
+## Audit
+
+Lifecycle events (server start/stop, zone load/reload — never per-query) are recorded to a
+tamper-evident, hash-chained JSONL log; run `secdns audit verify` to check it. See
+[docs/control-validation.md](docs/control-validation.md) for the control mapping and the
+query-logging posture.
+
+## Docs
+
+The full docs (config reference, zone format, console, deployment, control validation) are
+[Sphinx](https://www.sphinx-doc.org/) sources under `docs/` — no built HTML is committed.
+Build them locally:
+
+```bash
+pip install -r docs/requirements.txt
+sphinx-build -b html docs docs/_build/html   # then open docs/_build/html/index.html
+```
 
 ## License
 

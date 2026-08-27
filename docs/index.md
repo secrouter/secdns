@@ -13,6 +13,7 @@ configuration
 zone
 console
 deployment
+control-validation
 ```
 
 ## Why it exists
